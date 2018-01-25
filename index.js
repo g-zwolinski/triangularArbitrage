@@ -3,12 +3,31 @@ var clear = require('clear');
 var colors = require('colors/safe');
 var async = require('async'); 
 var obslugaGield = require('./scripts/exchanges.js');
+var crypto = require('crypto');
+
+/*
+ * obsługa klawiatury
+ */
+// var readline = require('readline');
+// readline.emitKeypressEvents(process.stdin);
+// process.stdin.setRawMode(true);
+// process.stdin.on('keypress', (str, key) => {
+//   if (key.ctrl && key.name === 'c') {
+//     process.exit();
+//   } else {
+//     console.log(`You pressed the "${str}" key`);
+//     console.log();
+//     console.log(key);
+//     console.log();
+//   }
+// });
+
 //**********************************************************************
 //tmp do trojkaty algo
 dostepneMarkety = [];
 //dostepneMarkety["bleutrade"] = [];
-
-gieldyDoTrojkatnychArbitrazy = ["bleutrade", "poloniex"];
+gieldyDoTrojkatnychArbitrazy = ["bleutrade"];
+//gieldyDoTrojkatnychArbitrazy = ["bleutrade", "poloniex"];
 //orders buy sell na poszczegolnych gieldach
 //quantity w marketCurrency
 //rate w baseCurrency
@@ -17,13 +36,29 @@ sellOrders = [];
 //klucz = [MarketA_BaseA_GieldaA,MarketB_BaseB_GieldaB,MarketC_BaseC_GieldaC]
 kluczeDoTrojkatnegoArbitrazu = [];
 
+var nextTour = true;
+
+openOrders = [];
+
+function pobierzOtwarteFerty(){
+
+    if(!nextTour) return;
+    nextTour = false;
+	obslugaGield.getAllOpenOrders('bleutrade');
+
+	
+}
+
 function sprawdzajArbitrazTrojaktny(){
-	clear();
+	// clear();
 	//console.log(buyOrders,sellOrders);
+	//console.log(buyOrders);
+	
 	if(kluczeDoTrojkatnegoArbitrazu!=null&&kluczeDoTrojkatnegoArbitrazu!=undefined){
 		for(var key = 0; key< kluczeDoTrojkatnegoArbitrazu.length; key++){
 			obliczArbitrazTrojkatny(kluczeDoTrojkatnegoArbitrazu[key][0],kluczeDoTrojkatnegoArbitrazu[key][1],kluczeDoTrojkatnegoArbitrazu[key][2]);
 		}
+		//sprawdzajArbitrazTrojaktny();
 	}
 }
 
@@ -44,9 +79,18 @@ function sprawdzCzyToLancuszek (a,b,c){
 	}
 }
 
+function walutaZKlucza(baseCzyQuote, klucz){
+	var res = klucz.split("_");
+	if(baseCzyQuote == 'base'){
+		return res[1];
+	}else{
+		return res[0];
+	}
+}
+
 //oblicz arbitrag trojkatny
 function obliczArbitrazTrojkatny (kluczA, kluczB, kluczC){
-	console.log(colors.bold(kluczA, kluczB, kluczC));
+	// console.log(colors.bold(kluczA, kluczB, kluczC));
 
 	//klucz = Market_Base_Gielda
 	//pierwsza strona 
@@ -54,7 +98,13 @@ function obliczArbitrazTrojkatny (kluczA, kluczB, kluczC){
 	//buyOrders["DOGE"+"_"+"BTC"] - KUP BTC ZA DOGE
 	//sellOrders["BUN"+"_"+"BTC"] - SPRZEDAJ BTC ZA BUN
 	//buyOrders["BUN"+"_"+"DOGE"] - KUP DOGE ZA BUN
-	if(buyOrders[kluczA]!=undefined&&buyOrders[kluczA]!=null&&
+
+
+
+	// @TODO:
+	// POPRAWIĆ WYLICZANIE W PIERWSZĄ STRONĘ!
+
+	if(false && buyOrders[kluczA]!=undefined&&buyOrders[kluczA]!=null&&
 		buyOrders[kluczB]!=undefined&&buyOrders[kluczB]!=null&&
 		sellOrders[kluczC]!=undefined&&sellOrders[kluczC]!=null&&
 		buyOrders[kluczA][0]!=undefined&&buyOrders[kluczA][0]!=null&&
@@ -82,46 +132,87 @@ function obliczArbitrazTrojkatny (kluczA, kluczB, kluczC){
 		var quantityCA = buyOrders[kluczB][0].Quantity;//w [ZRC]
 		var totalCostCA = quantityCA*prizeCA*prizeAB;//w [BTC]
 
-		console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
+		//console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
 		//rate 
 		//(1/3)*2
 		
 		var wynikArbitrazu = parseFloat((((prizeAB)/prizeBC)*prizeCA)).toFixed(8)-iloscWWalucieA;
 		//var wynikArbitrazu = parseFloat(((prizeAB/prizeCA)*prizeBC)-1).toFixed(8);
 		//var wynikArbitrazuu = parseFloat((prizeCA - (prizeAB*prizeBC))).toFixed(8);
-		if(wynikArbitrazu>0){
+		if(wynikArbitrazu>0 && false === true){
+			console.log('first way');
+			console.log('BUY', walutaZKlucza('quote', kluczA), 'FOR', walutaZKlucza('base', kluczA));
+			console.log('p: ', prizeAB, '[', walutaZKlucza('quote', kluczA), ']', ' q: ', quantityAB, '[', walutaZKlucza('base', kluczA), ']', ' tc: ',  totalCostAB, '[', walutaZKlucza('quote', kluczA), ']' );
+			
+			console.log('BUY', walutaZKlucza('base', kluczC), 'FOR', walutaZKlucza('base', kluczA));
+			console.log('p: ', prizeCA, '[', walutaZKlucza('base', kluczA), ']', ' q: ', quantityCA, '[', walutaZKlucza('base', kluczA), ']', ' tc: ',  totalCostCA, '[', walutaZKlucza('quote', kluczC), ']' );
+			
+			console.log('SELL', walutaZKlucza('quote', kluczB), 'FOR', walutaZKlucza('base', kluczB));
+			console.log('p: ', prizeBC, '[', walutaZKlucza('base', kluczB), ']', ' q: ', quantityBC, '[', walutaZKlucza('qute', kluczB), ']', ' tc: ',  totalCostBC, '[', walutaZKlucza('quote', kluczB), ']' );
+			
+			//console.log((quantityAB/totalCostAB).toFixed(8),(quantityBC/totalCostBC).toFixed(8),(quantityCA/totalCostCA).toFixed(8));
+			//console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
 			console.log(colors.green("buy buy sell", wynikArbitrazu));
 		}else if(wynikArbitrazu<0){
-			console.log(colors.red("buy buy sell", wynikArbitrazu));
+			// console.log(colors.red("buy buy sell", wynikArbitrazu));
 		}else{
-			console.log(colors.blue("buy buy sell", wynikArbitrazu));
+			// console.log(colors.blue("buy buy sell", wynikArbitrazu));
 		}
 	}
 	//DRUGA strona 
-	//BTC->DOGE->BUN->BTC
-	//sellOrders["DOGE"+"_"+"BTC"] - SPRZEDAJ BTC ZA DOGE
-	//sellOrders["BUN"+"_"+"DOGE"] - SPRZEDAJ DOGE ZA BUN
-	//buyOrders["BUN"+"_"+"BTC"] - KUP BTC ZA BUN
+	//DOGE->ETH->VTC->DOGE
+	//sellOrders["ETH"+"_"+"DOGE"] - SPRZEDAJ DOGE ZA ETH
+	//sellOrders["VTC"+"_"+"ETH"] - SPRZEDAJ ETH ZA VTC
+	//buyOrders["VTC"+"_"+"DOGE"] - KUP DOGE ZA VTC
 	if(sellOrders[kluczA]!=undefined&&sellOrders[kluczA]!=null&&
 		sellOrders[kluczB]!=undefined&&sellOrders[kluczB]!=null&&
 		buyOrders[kluczC]!=undefined&&buyOrders[kluczC]!=null&&
 		sellOrders[kluczA][0]!=undefined&&sellOrders[kluczA][0]!=null&&
 		sellOrders[kluczB][0]!=undefined&&sellOrders[kluczB][0]!=null&&
 		buyOrders[kluczC][0]!=undefined&&buyOrders[kluczC][0]!=null){
-		var prizeAB = sellOrders[kluczA][0].Rate;
-		var prizeBC = sellOrders[kluczB][0].Rate;
-		var prizeCA = buyOrders[kluczC][0].Rate;
+		var prizeAB = sellOrders[kluczA][0].Rate;//w [DOGE] (BASE CURRENCY)
+		var prizeBC = sellOrders[kluczB][0].Rate;//w [ETH] (BASE CURRENCY)
+		var prizeCA = buyOrders[kluczC][0].Rate;//w [DOGE] (BASE CURRENCY)
 
-		var quantityAB = sellOrders[kluczA][0].Quantity;//w [DOGE]
-		var totalCostAB = quantityAB*prizeAB;//w [BTC]
+		var quantityAB = sellOrders[kluczA][0].Quantity;//w [ETH] (MARKET CURRENCY)
+		var totalCostAB = (quantityAB*prizeAB).toFixed(8);//w [DOGE] (BASE CURRENCY)
 
-		var quantityBC = sellOrders[kluczB][0].Quantity;//w [ZRC]
-		var totalCostBC = quantityBC*prizeBC;//w [BTC]
+		var quantityBC = sellOrders[kluczB][0].Quantity;//w [VTC] (MARKET CURRENCY)
+		var totalCostBC = (quantityBC*prizeBC).toFixed(8);//w [ETH] (BASE CURRENCY)
 
-		var quantityCA = buyOrders[kluczC][0].Quantity;//w [ZRC]
-		var totalCostCA = quantityCA*prizeCA;//w [DOGE]
+		var quantityCA = buyOrders[kluczC][0].Quantity;//w [VTC] (MARKET CURRENCY)
+		var totalCostCA = (quantityCA*prizeCA).toFixed(8);//w [DOGE] (BASE CURRENCY)
 
-		console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
+		//totalCostBC w [DOGE] (AB I CA BASE CURRENCY)
+		var totalCostBC_A = (quantityBC*prizeCA).toFixed(8);
+
+		
+		
+		//PROTOTYPE IDEA:
+		//
+		//fee = 2.5e-8;
+		//function fee(a){return a*0.0025}
+		//znalezc najdrozsza walute
+		//sprawdzic czy q z ofert są > 0.00001 [najdrozsza waluta]
+		//sprawdzic czy 
+		//-------------
+
+		//sprawdzic czy (0.00001 + 2.5e-8) *  < 
+
+		//obliczyc min z totalcostow
+		//sprawdzic ilosci sa wystarczajace do zlozenia oferty
+
+		//TODO LATER: jak nie to sprawdzic czy z nastepna oferta tez bylby arbitraz
+
+		//sprawdzic balanse kont
+
+
+
+		//sprawdzic czy ktorys rynek z trojkata jest aktualnie obslugiwany
+		//(czy sa na nim otwarte oferty)
+
+
+		//console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
 		//console.log("sell", kluczA, sellOrders[kluczA][0]);
 		//console.log("sell", kluczB, sellOrders[kluczB][0]);
 		//console.log("buy", kluczC, buyOrders[kluczC][0]);
@@ -130,11 +221,62 @@ function obliczArbitrazTrojkatny (kluczA, kluczB, kluczC){
 		var iloscWWalucieA = 1;
 		var wynikArbitrazu = parseFloat((((1/prizeAB)/prizeBC)*prizeCA)).toFixed(8)-iloscWWalucieA;
 		//var wynikArbitrazu = parseFloat((prizeCA - (prizeAB*prizeBC))).toFixed(8);
+		// console.log(wynikArbitrazu);
 		if(wynikArbitrazu>0){
 			//console.log(colors.bold(kluczA, kluczB, kluczC));
-			console.log(colors.green("sell sell buy", wynikArbitrazu));
+			//console.log(quantityAB,totalCostAB,quantityBC,totalCostBC,quantityCA,totalCostCA);
+			console.log('second way');
+
+
+			console.log('BUY', walutaZKlucza('quote', kluczA), 'FOR', walutaZKlucza('base', kluczA));
+			console.log('q cur', walutaZKlucza('quote', kluczA), 'b cur', walutaZKlucza('base', kluczA));
+			console.log('p: ', prizeAB, '[', walutaZKlucza('base', kluczA), ']',' q: ',  quantityAB, '[', walutaZKlucza('quote', kluczA), ']',' tc: ',   totalCostAB, '[', walutaZKlucza('base', kluczA), ']' );
+			
+			// console.log(prizeAB * )
+
+			console.log('BUY', walutaZKlucza('quote', kluczB), 'FOR', walutaZKlucza('base', kluczB));
+			console.log('q cur', walutaZKlucza('quote', kluczB), 'b cur', walutaZKlucza('base', kluczB));
+			console.log('p: ', prizeBC, '[', walutaZKlucza('base', kluczB), ']',' q: ',  quantityBC, '[', walutaZKlucza('quote', kluczB), ']',' tc: ',   totalCostBC, '[', walutaZKlucza('base', kluczB), ']' );
+			
+			console.log('SELL', walutaZKlucza('quote', kluczC), 'FOR', walutaZKlucza('base', kluczC));
+			console.log('q cur', walutaZKlucza('quote', kluczC), 'b cur', walutaZKlucza('base', kluczC));
+			console.log('p: ', prizeCA, '[', walutaZKlucza('base', kluczC), ']',' q: ',  quantityCA, '[', walutaZKlucza('quote', kluczC), ']',' tc: ',   totalCostCA, '[', walutaZKlucza('base', kluczC), ']' );
+			
+			console.log('totalCostBC_A: ', totalCostBC_A);
+
+
+					// var oper = Math.min(
+     //                      getBal(aLabel), (((getBal(bLabel) * 1.0025).toFixed(8)) / r1).toFixed(8), (((((((getBal(cLabel) * 1.0025).toFixed(8)) / r2).toFixed(8)) * 1.0025).toFixed(8)) / r1).toFixed(8),
+     //                      q1, (((q2 * 1.0025).toFixed(8)) / r1).toFixed(8), (((((((q3 * 1.0025).toFixed(8)) / r2).toFixed(8)) * 1.0025) / r1)).toFixed(8)
+     //                  );
+
+     //                  if (oper > getBal(aLabel)) {
+     //                      oper = getBal(label1[start]);
+     //                  }
+     //                  if (oper > (((getBal(bLabel) * 1.0025).toFixed(8)) / r1).toFixed(8)) {
+     //                      oper = (((getBal(bLabel) * 1.0025).toFixed(8)) / r1).toFixed(8);
+     //                  }
+     //                  if (oper > (((((((getBal(cLabel) * 1.0025).toFixed(8)) / r2).toFixed(8)) * 1.0025).toFixed(8)) / r1).toFixed(8)) {
+     //                      oper = (((((((getBal(cLabel) * 1.0025).toFixed(8)) / r2).toFixed(8)) * 1.0025).toFixed(8)) / r1).toFixed(8);
+     //                  }
+
+
+			console.log(colors.green("buy buy sell", wynikArbitrazu));
+
+			var toHash = ''+sellOrders[kluczA][0].gielda + sellOrders[kluczA][0].BaseCurrency + sellOrders[kluczA][0].MarketCurrency +
+			sellOrders[kluczB][0].gielda + sellOrders[kluczB][0].BaseCurrency + sellOrders[kluczB][0].MarketCurrency +
+			buyOrders[kluczC][0].gielda + buyOrders[kluczC][0].BaseCurrency + buyOrders[kluczC][0].MarketCurrency;
+
+			//TODO SPRAWDZ CZY ISTNIEJE W OPENORDERS
+
+			//JAK NIE, ZNAJDZ KWOTE MINIMALNA I KUP/SPRZEDAJ
+
+			
+
+			// console.log(crypto.createHash('md5').update(toHash).digest("hex"));
+
 		}else if(wynikArbitrazu<0){
-			console.log(colors.red("sell sell buy", wynikArbitrazu));
+			//console.log(colors.red("sell sell buy", wynikArbitrazu));
 		}else{
 			console.log(colors.blue("sell sell buy", wynikArbitrazu));
 		}
@@ -327,6 +469,12 @@ exports.zrobCosZWynikami = (akcja,gielda,dane,daneDodatkowe) => {
 		console.log(sellOrders);
 		*/
 		break;
+		case 'getAllOpenOrders':
+			//console.log('getAllOpenOrders', gielda, dane);
+			nextTour = true;
+			openOrders = dane;
+			sprawdzajArbitrazTrojaktny();
+		break;
 	}
 }
 
@@ -334,13 +482,16 @@ exports.zrobCosZWynikami = (akcja,gielda,dane,daneDodatkowe) => {
 //obslugaGield.getAllBalances("bleutrade");
 //obslugaGield.getAllMarkets("bleutrade");
 
-obslugaGield.getAllMarkets("poloniex");
+// obslugaGield.getAllMarkets("poloniex");
+
 obslugaGield.getAllMarkets("bleutrade");
+
 //obslugaGield.getMarketOrders("bleutrade", "DOGE", "BTC", "ALL", 10);
 //obslugaGield.getMarketOrders("bleutrade", "BUN", "BTC", "ALL", 10);
 //obslugaGield.getMarketOrders("bleutrade", "BUN", "DOGE", "ALL", 10);
 
-setInterval(sprawdzajArbitrazTrojaktny, 10000);
+setInterval(pobierzOtwarteFerty, 1000);
+// setInterval(sprawdzajArbitrazTrojaktny, 1000);
 /*
 async.waterfall([
   function(callback){
