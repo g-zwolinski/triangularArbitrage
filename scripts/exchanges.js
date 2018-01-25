@@ -3,7 +3,8 @@ var util = require('util');
 var index = require('./../index.js');
 //bleutrade
 var BleutradeAPI = require('bleutrade-api');
-var bleutrade = new BleutradeAPI("6f3a89dd337958a9f59401a2671d210e", "cf917eb6da048d2403a44c41ba546bfa");
+// var bleutrade = new BleutradeAPI("", "");
+var bleutrade = new BleutradeAPI("", "");
 /* 
 bleutrade.getmarketsummaries(function(err, summaries) {
 	if(err) return;
@@ -22,7 +23,7 @@ var Poloniex = require('poloniex.js'),
     // Create a new instance, with optional API key and secret
     poloniex = new Poloniex(
         // 'API_KEY',
-        "UY49UGTD-YOKLTA9D-5JSNJQO0-ELNZX6RI"
+        ""
         // 'API_SECRET'
     );
 
@@ -130,6 +131,29 @@ exports.getMarketOrders = (gielda, MarketCurrency, BaseCurrency, type, depth) =>
 		    index.zrobCosZWynikami("getMarketOrders", gielda, orders, [MarketCurrency, BaseCurrency, type, depth]);
 		    //console.log(orders);
 		});
+		break;
+	}
+}
+
+exports.getAllOpenOrders = (gielda) => {
+
+	switch (gielda){
+	case "bleutrade": 
+
+		bleutrade.market_getopenorders(function(err, orders) {
+			if(err) return;
+			console.log(orders);
+            if(orders.success) {
+
+				index.zrobCosZWynikami("getAllOpenOrders", gielda, orders.result);
+            	//index.zrobCosZWynikami("getMarketOrders", gielda, (orders.result), [MarketCurrency, BaseCurrency, type, depth]);
+            }
+		});
+		    
+		break;
+	case "poloniex":
+		//bez obslugi parametrow type, depth - zawsze wszystko
+		console.log('todo');
 		break;
 	}
 }
